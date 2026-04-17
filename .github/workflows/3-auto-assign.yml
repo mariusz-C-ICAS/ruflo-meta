@@ -1,0 +1,61 @@
+name: PCBiuro — Auto Assign Tasks
+on:
+  issues:
+    types: [labeled, opened]
+  workflow_dispatch:
+
+permissions:
+  issues: write
+  contents: read
+
+jobs:
+  auto-assign:
+    runs-on: ubuntu-latest
+    name: Auto-assign ready tasks
+    if: github.event_name == 'issues'
+    steps:
+      - name: PCBiuro — Auto Assign
+        uses: actions/github-script@v7
+        with:
+          github-token: ${{ secrets.GITHUB_TOKEN }}
+          script: |
+            const issue = context.payload.issue;
+            if (!issue) return;
+
+            const labels = issue.labels.map(l => l.name);
+            const isReady = labels.includes('status:ready');
+            const hasAssignee = issue.assignees && issue.assignees.length > 0;
+
+            if (!isReady || hasAssignee) return;
+
+            // Map agent-type to assignee (PCBiuro for coordinator tasks)
+            const agentType = labels.find(l => l.startsWith('agent-type:'));
+
+            let comment = '## 🤖 PCBiuro — Task Auto-Assigned\n\n';
+            comment += `**Task #${issue.number}** jest oznaczony jako \`status:ready\`.\n\n`;
+
+            if (agentType) {
+              comment += `**Wymagany agent:** \`${agentType}\`\n`;
+            }
+
+            const rojoLabel = labels.find(l => l.startsWith('rojo:'));
+            if (rojoLabel) {
+              const rojoMap = { 'rojo:1': 'Rój #1 (CalSyncPro)', 'rojo:2': 'Rój #2 (NoFiCo)', 'rojo:3': 'Rój #3 (C-ICAS.coaching)', 'rojo:4': 'Rój #4 (Future)' };
+              comment += `**Sub-rój:** ${rojoMap[rojoLabel] || rojoLabel}\n`;
+            }
+
+            comment += `\n### Aby podjąć to zadanie:\n`;
+            comment += `1. Dodaj komentarz: \`[TWÓJ-AGENT-ID] Starting work\`\n`;
+            comment += `2. Zmień label: \`status:in-progress\`\n`;
+            comment += `3. Pracuj i raportuj postęp w komentarzach\n`;
+            comment += `4. Po zakończeniu: \`status:review\` lub \`status:done\`\n\n`;
+            comment += `> 🤖 PCBiuro auto-assignment | Ruflo Swarm`;
+
+            await github.rest.issues.createComment({
+              owner: context.repo.owner,
+              repo: context.repo.repo,
+              issue_number: issue.number,
+              body: comment
+            });
+
+            console.log(`Auto-assigned comment added to issue #${issue.number}`);
