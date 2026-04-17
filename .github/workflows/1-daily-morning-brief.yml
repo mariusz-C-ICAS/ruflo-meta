@@ -1,0 +1,83 @@
+name: PCBiuro — Daily Morning Brief
+on:
+  schedule:
+    - cron: '0 8 * * *'   # 09:00 CET (08:00 UTC) każdy dzień
+  workflow_dispatch:       # możliwość ręcznego uruchomienia
+
+permissions:
+  issues: write
+  contents: read
+
+jobs:
+  morning-brief:
+    runs-on: ubuntu-latest
+    name: Morning Brief — Scan all projects
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Setup Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: '20'
+
+      - name: PCBiuro — Morning Brief
+        uses: actions/github-script@v7
+        with:
+          github-token: ${{ secrets.GITHUB_TOKEN }}
+          script: |
+            const { Octokit } = require('@octokit/rest');
+            // Use GITHUB_TOKEN - read-only for external repos; cross-repo needs PAT
+            const today = new Date().toISOString().split('T')[0];
+            const time = new Date().toLocaleString('pl-PL', { timeZone: 'Europe/Warsaw' });
+
+            // Collect stats from this repo's issues
+            const { data: openIssues } = await github.rest.issues.listForRepo({
+              owner: context.repo.owner,
+              repo: context.repo.repo,
+              state: 'open',
+              per_page: 100
+            });
+
+            const blocked = openIssues.filter(i => i.labels.some(l => l.name === 'status:blocked'));
+            const inProgress = openIssues.filter(i => i.labels.some(l => l.name === 'status:in-progress'));
+            const ready = openIssues.filter(i => i.labels.some(l => l.name === 'status:ready'));
+
+            const blocked_list = blocked.map(i => `- 🚫 #${i.number} ${i.title}`).join('\n') || '✅ Brak';
+            const progress_list = inProgress.map(i => `- 🔄 #${i.number} ${i.title}`).join('\n') || '📭 Brak';
+            const ready_list = ready.map(i => `- ✅ #${i.number} ${i.title}`).join('\n') || '📭 Brak';
+
+            const body = [
+              `## 🤖 PCBiuro — Morning Brief ${today}`,
+              `*Generowane: ${time} CET*`,
+              '',
+              '### 📊 Status ruflo-meta',
+              `- 🔴 Zablokowane: ${blocked.length}`,
+              `- 🔄 W trakcie: ${inProgress.length}`,
+              `- ✅ Gotowe do podjęcia: ${ready.length}`,
+              '',
+              '### 🚫 Zablokowane (wymagają uwagi)',
+              blocked_list,
+              '',
+              '### 🔄 W trakcie realizacji',
+              progress_list,
+              '',
+              '### ✅ Gotowe do podjęcia',
+              ready_list,
+              '',
+              '---',
+              '> 🤖 PCBiuro | Ruflo Swarm v1.0 | Auto-generated',
+              '> Repozytoria: [calsyncpro](https://github.com/mariusz-C-ICAS/calsyncpro) | [nofico](https://github.com/mariusz-C-ICAS/nofico) | [c-icas-coaching](https://github.com/mariusz-C-ICAS/c-icas-coaching)',
+            ].join('\n');
+
+            // Create or update daily standup issue
+            await github.rest.issues.create({
+              owner: context.repo.owner,
+              repo: context.repo.repo,
+              title: `[STANDUP] Morning Brief — ${today}`,
+              body,
+              labels: ['status:in-progress', 'priority:normal', 'project:meta', 'type:chore', 'agent-type:coordinator']
+            });
+
+            console.log(`✅ Morning Brief created for ${today}`);
+            console.log(`   Blocked: ${blocked.length} | In Progress: ${inProgress.length} | Ready: ${ready.length}`);
