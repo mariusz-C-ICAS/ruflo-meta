@@ -12,6 +12,8 @@ jobs:
   morning-brief:
     runs-on: ubuntu-latest
     name: Morning Brief — Scan all projects
+    env:
+      GEMINI_API_KEY: ${{ secrets.GEMINI_API_KEY }}
     steps:
       - name: Checkout
         uses: actions/checkout@v4

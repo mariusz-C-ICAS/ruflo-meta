@@ -12,6 +12,8 @@ jobs:
   cross-repo-scan:
     runs-on: ubuntu-latest
     name: Scan all project repos
+    env:
+      GEMINI_API_KEY: ${{ secrets.GEMINI_API_KEY }}
     steps:
       - name: PCBiuro — Cross-Repo Scan
         uses: actions/github-script@v7
