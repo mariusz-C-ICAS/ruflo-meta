@@ -13,6 +13,8 @@ jobs:
     runs-on: ubuntu-latest
     name: Auto-assign ready tasks
     if: github.event_name == 'issues'
+    env:
+      GEMINI_API_KEY: ${{ secrets.GEMINI_API_KEY }}
     steps:
       - name: PCBiuro — Auto Assign
         uses: actions/github-script@v7

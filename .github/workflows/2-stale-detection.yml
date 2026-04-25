@@ -12,6 +12,8 @@ jobs:
   stale-detection:
     runs-on: ubuntu-latest
     name: Detect stalled tasks
+    env:
+      GEMINI_API_KEY: ${{ secrets.GEMINI_API_KEY }}
     steps:
       - name: PCBiuro — Stale Detection
         uses: actions/github-script@v7
